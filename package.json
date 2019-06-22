@@ -99,5 +99,7 @@
 		"typescript": "^3.3.1",
 		"vscode": "^1.1.28"
 	},
-	"dependencies": {}
+	"dependencies": {
+		"fast-xml-parser": "^3.12.16"
+	}
 }

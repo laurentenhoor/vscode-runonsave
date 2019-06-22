@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {exec} from 'child_process';
+import { exec } from 'child_process';
+import * as XmlParser from 'fast-xml-parser';
 
 export function activate(context: vscode.ExtensionContext): void {
 
@@ -50,6 +51,21 @@ class RunOnSaveExtension {
 		this.loadConfig();
 	}
 
+	private handleCommandOutput(output: string) {
+		this._outputChannel.append(output);
+		const jsonOutput = XmlParser.parse(output, {
+			ignoreAttributes: false,
+		});
+		if (jsonOutput.error) {
+			const errorMessage = jsonOutput.error.causes.cause.join(' ');
+			vscode.window.showErrorMessage(errorMessage, { modal: true });
+		}
+		if (jsonOutput.configManager['@_status'] === 'ok') {
+			vscode.window.showInformationMessage('Succesfully validated and saved configuration.')
+		}
+
+	}
+
 	/** Recursive call to run commands. */
 	private _runCommands(commands: Array<ICommand>): void {
 		if (commands.length) {
@@ -58,8 +74,8 @@ class RunOnSaveExtension {
 			this.showOutputMessage(`*** cmd start: ${cfg.cmd}`);
 
 			var child = exec(cfg.cmd, this._execOption);
-			child.stdout.on('data', data => this._outputChannel.append(data));
-			child.stderr.on('data', data => this._outputChannel.append(data));
+			child.stdout.on('data', data => this.handleCommandOutput(data));
+			child.stderr.on('data', data => this.handleCommandOutput(data));
 			child.on('exit', (e) => {
 				// if sync
 				if (!cfg.isAsync) {
@@ -79,9 +95,9 @@ class RunOnSaveExtension {
 		}
 	}
 
-	private get _execOption(): {shell: string} {
+	private get _execOption(): { shell: string } {
 		if (this.shell) {
-			return {shell: this.shell};
+			return { shell: this.shell };
 		}
 	}
 
@@ -113,7 +129,7 @@ class RunOnSaveExtension {
 	 * Show message in output channel
 	 */
 	public showOutputMessage(message?: string): void {
-		message = message || `Run On Save ${this.isEnabled ? 'enabled': 'disabled'}.`;
+		message = message || `Run On Save ${this.isEnabled ? 'enabled' : 'disabled'}.`;
 		this._outputChannel.appendLine(message);
 	}
 
@@ -127,11 +143,11 @@ class RunOnSaveExtension {
 	}
 
 	public runCommands(document: vscode.TextDocument): void {
-		if(this.autoClearConsole) {
+		if (this.autoClearConsole) {
 			this._outputChannel.clear();
 		}
 
-		if(!this.isEnabled || this.commands.length === 0) {
+		if (!this.isEnabled || this.commands.length === 0) {
 			this.showOutputMessage();
 			return;
 		}
